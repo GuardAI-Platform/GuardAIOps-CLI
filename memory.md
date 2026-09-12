@@ -10,78 +10,156 @@ Last updated: 2026-09-12
 
 ## 1. Current Status
 
-**Phase: 1 (Basic CLI) — skeleton implemented and run by Claude; awaiting the
-developer's own test run.**
+**Phases 1, 2, 5, 6, 7, 9, 10 are implemented and tested locally.
+Phase 8 is proven in mock mode. Phases 3 and 4 are BLOCKED on the backend team.
+Phases 11 and 12 are not started.**
 
-Repository state at the start of this session:
+| Phase | Goal | State |
+|-------|------|-------|
+| 1 | Basic CLI | Done, tested |
+| 2 | Repository / file detection | Done, tested |
+| 3 | GuardAI API client | Structure done. **BLOCKED: no API contract.** |
+| 4 | Real scan results | **BLOCKED: no API contract.** Mock proves the path. |
+| 5 | Correct exit codes | Done, all four verified |
+| 6 | Run CLI inside GitHub Actions | Implemented; verified by simulating the runner locally. **Not yet run on GitHub.** |
+| 7 | Trigger from Pull Requests | Workflow written. **Not yet run on GitHub.** |
+| 8 | End-to-end PASS/FAIL demo | Works locally in mock mode. **Not yet demonstrated on a real PR.** |
+| 9 | Reusable GitHub Action | `action.yml` written. **Not yet run on GitHub.** |
+| 10 | PR reporting | Annotations, job summary, step outputs verified locally. PR comment code written but **never executed against the GitHub API.** |
+| 11 | Marketplace distribution | Not started |
+| 12 | GitLab | Not started (correctly deferred until GitHub works with the real API) |
 
-- Project root: `C:\Users\ADMIN\OneDrive\Desktop\GuardAI CLI`
-- Only file present: `context.md` (973 lines, product/assignment context)
-- **Not** a git repository (`git status` -> fatal: not a git repository) — still true;
-  `git init` has not been run
-- No `package.json`, no source code, no tests, no CI configuration
-- Local tooling verified this session: Node `v24.15.0`, npm `11.7.0`,
-  git `2.53.0.windows.3`, gh `2.95.0`, Python `3.14.6`
-
-The CLI skeleton now exists (see §2) and all four of its code paths were executed
-successfully (see §3). No repository detection, no API calls, no findings logic yet.
+Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean tree.
+**No GitHub remote exists. Nothing has been pushed.**
 
 ---
 
 ## 2. What Has Been Built
 
-| Item | Status |
-|------|--------|
-| `CLAUDE.md` | Created this session |
-| `memory.md` | Created this session (this file) |
-| `package.json` | Created. ESM (`"type": "module"`), bin `guardai` -> `bin/guardai.js`, `test` script = `node --test`, **zero dependencies**, `private: true`. |
-| `bin/guardai.js` | Created. Shebang entry point; slices `process.argv`, awaits `run(args)`, sets `process.exitCode`; catches throws and maps them to exit 3. |
-| `src/exit-codes.js` | Created. `EXIT.OK=0`, `VIOLATIONS_FOUND=1`, `USAGE_ERROR=2`, `GUARDAI_ERROR=3`. |
-| `src/cli.js` | Created. Routes `help`/`--help`/`-h`/no-args -> usage (0), `version`/`--version`/`-v` -> version from package.json (0), `scan` -> scan command, anything else -> usage on **stderr** (2). Returns codes, never exits. |
-| `src/commands/scan.js` | Created. **Phase 1 placeholder only** — prints a banner + cwd + an explicit "not implemented yet: no files were read and no scan was performed" line, returns 0. No file I/O, no HTTP, no fake findings. |
-| `.gitignore` | Created. `node_modules/`, `.env*`, `*.pem`, `*.key`, logs, editor/OS noise. |
-| Automated tests | Not written yet (planned once `scan` has real behaviour to assert). |
+### Documentation
+| File | Contents |
+|------|----------|
+| `CLAUDE.md` | Engineering rules, architecture, boundaries, **the no-comments rule (§6a)** |
+| `memory.md` | This file |
+| `README.md` | Product overview, commands, exit codes, Action usage, layout |
+| `docs/API-CONTRACT.md` | The 25 blocking questions, the provisional assumptions, the change plan |
+| `docs/GITHUB-ACTIONS.md` | CI/CD explained from zero for a learner |
+| `docs/TESTING.md` | Copy-pasteable test procedure for every phase |
+| `examples/demo-repo/README.md` | Demo fixture guide |
+
+### Source
+| File | Role |
+|------|------|
+| `bin/guardai.js` | Entry point. Only place that sets `process.exitCode`. |
+| `src/cli.js` | Routes `scan` / `version` / `help`. Returns codes, never exits. |
+| `src/exit-codes.js` | `OK=0`, `VIOLATIONS_FOUND=1`, `USAGE_ERROR=2`, `GUARDAI_ERROR=3` |
+| `src/args.js` | Zero-dependency flag parser. Rejects unknown options and missing values. |
+| `src/errors.js` | `GuardAiError`, `ConfigurationError`, `ApiError`, `ContractMismatchError` |
+| `src/verdict.js` | Severity ranking, counts, `decideVerdict`. API verdict wins over client threshold. |
+| `src/version.js` | Reads version from `package.json` |
+| `src/commands/scan.js` | Orchestrates detect -> discover -> client -> verdict -> output -> exit code |
+| `src/repo/detect.js` | git root, branch, commit, remote, provider, slug. Degrades safely without git. |
+| `src/repo/discover.js` | Walks for `.tf`/`.tfvars`; ignore-list; limits 500 files / 1 MB / 20 MB |
+| `src/repo/changed.js` | `git diff --name-only --diff-filter=ACMR base...HEAD` |
+| `src/ci/context.js` | GitHub Actions env + event payload -> PR number, base/head ref, run URL |
+| `src/api/config.js` | Env/flag config. **No invented defaults.** Enforces https except localhost. |
+| `src/api/client.js` | The only HTTP code. Never prints keys or response bodies. |
+| `src/api/provisional-contract.js` | **Every unverified API assumption, isolated here.** |
+| `src/api/mock-client.js` | Labelled mock. 5 regex patterns. Warns loudly on every run. |
+| `src/output/report.js` | Terminal rendering |
+| `src/output/github.js` | Annotations, job summary, step outputs, PR comment upsert |
+
+### CI / packaging
+| File | Role |
+|------|------|
+| `action.yml` | Composite reusable Action. Inputs passed via env, never interpolated into the shell. |
+| `.github/workflows/ci.yml` | Runs `npm test` on push/PR |
+| `.github/workflows/guardai-demo.yml` | Two jobs: clean passes; insecure is blocked and verified |
+| `examples/demo-repo/guardai-workflow.yml` | Template for a customer repository |
+| `examples/demo-repo/passing/main.tf` | Clean Terraform fixture |
+| `examples/demo-repo/failing/main.tf` | Deliberately insecure Terraform fixture |
+| `.gitattributes` | Forces LF so the Action's bash script works on Linux runners |
+| `.gitignore` | `node_modules/`, `.env*`, keys, logs, editor noise |
+
+### Tests
+`test/args.test.js`, `test/cli.test.js`, `test/discover.test.js`,
+`test/mock-client.test.js`, `test/provisional-contract.test.js`, `test/verdict.test.js`
 
 ---
 
 ## 3. What Has Been Tested
 
-### 2026-09-12 — Phase 1 skeleton, run by Claude (bash, project root)
+### 2026-09-12 — Phase 1 skeleton
+Verified by Claude (bash) and independently **confirmed by the developer in PowerShell**:
+`scan` -> 0, `version` -> `0.1.0` -> 0, no args -> usage -> 0, `bogus` -> usage -> 2.
 
-All four code paths executed; output and exit codes observed directly:
+### 2026-09-12 — Automated suite
+`node --test` -> **32 tests, 32 pass, 0 fail.** Run twice, after the full build.
 
-| Command | Observed output | Exit code |
-|---------|-----------------|-----------|
-| `node bin/guardai.js scan` | Banner, `Working directory: C:\Users\...\GuardAI CLI`, "Not implemented yet..." | `0` |
-| `node bin/guardai.js version` | `0.1.0` | `0` |
-| `node bin/guardai.js` (no args) | Usage block on stdout | `0` |
-| `node bin/guardai.js bogus` | `guardai: unknown command 'bogus'` + usage, on stderr | `2` |
+### 2026-09-12 — Exit codes (all four observed)
+| Command | Result | Code |
+|---------|--------|------|
+| `scan --mock --path examples/demo-repo/passing` | PASS, no violations | `0` |
+| `scan --mock --path examples/demo-repo/failing` | 5 findings (3 high, 2 medium) | `1` |
+| `scan --mock --path .../failing --fail-on critical` | PASS, below threshold | `0` |
+| `scan --fail-on banana --mock` | invalid severity message | `2` |
+| `scan --path .../passing` with no API env | "API is not configured", names missing vars | `3` |
 
-Not yet tested: the developer's own run on PowerShell (`$LASTEXITCODE`), and
-`npm link` / global `guardai` invocation.
+### 2026-09-12 — File discovery
+Full-repo scan found 2 `.tf` files and correctly excluded `.git`, `node_modules`,
+`.terraform`. Per-file size limit and skip reporting covered by tests.
 
-Testing rule in force: a step is only "done" when its output was observed.
-Record here exactly what command was run, what came back, and the exit code.
+### 2026-09-12 — Changed-file detection
+On a temporary branch with one added `.tf`: `scan --mock --changed --base main`
+reported **1 file** (not all 3), branch `test-changed-detection`, commit `82b57d03`,
+and the finding path was `examples/demo-repo/passing/extra.tf` — repo-relative with
+forward slashes, which is what GitHub annotations require. Branch deleted afterwards.
+
+### 2026-09-12 — GitHub Actions output, simulated locally
+With `GITHUB_ACTIONS=true`, `GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` set to temp files:
+- 5 `::error title=...,file=main.tf,line=N::` annotation lines emitted
+- `GITHUB_OUTPUT` received `passed=false` and `findings-count=5`
+- job summary received the markdown table with the mock-mode warning banner
+
+### 2026-09-12 — JSON output
+`--json` produced valid JSON with `source`, `passed`, `failOn`, `decidedBy`,
+`filesScanned`, `counts`, `findings`.
+
+### 2026-09-12 — No-comments rule
+`grep -rnE '^\s*(//|/\*|\*)'` over `src bin test` -> none.
+`grep -rnE '^\s*#'` over `*.yml` -> none. Shebang in `bin/guardai.js` preserved.
+
+### NOT tested — be honest about these
+- **Nothing has run on GitHub.** No push, no remote, no workflow run, no real PR.
+  Phases 6, 7, 8, 9, 10 are therefore *implemented but unproven in the real environment*.
+- The PR comment code path has **never** executed against the GitHub API.
+- `src/api/client.js` has **never** made a real request — there is no API to call.
+- No test on Linux; all local runs were Windows.
 
 ---
 
 ## 4. Current Architecture
 
-Planned layering (see `CLAUDE.md` §3 for the rules that keep it honest):
-
 ```
-bin/guardai.js       entry point                      [EXISTS]
-  src/cli.js         command routing + exit codes     [EXISTS]
-  src/exit-codes.js  shared exit-code constants       [EXISTS]
-    src/commands/    one file per command             [EXISTS: scan.js placeholder]
-    src/repo/        repository & file discovery      [Phase 2 - not created]
-    src/api/         GuardAI API client (HTTP only)   [Phase 3 - not created]
-    src/output/      rendering                        [Phase 4 - not created]
+bin/guardai.js          entry point, the only place process.exitCode is set
+  src/cli.js            routing, returns exit codes
+  src/args.js           flag parsing
+  src/verdict.js        findings -> pass/fail
+    src/commands/scan.js    orchestration
+      src/repo/           detect.js, discover.js, changed.js
+      src/ci/             context.js
+      src/api/            config.js, client.js, provisional-contract.js, mock-client.js
+      src/output/         report.js, github.js
+action.yml              composite Action wrapping the CLI
 ```
 
-Invariant already enforced in code: `src/cli.js` and the command modules **return**
-an exit code; only `bin/guardai.js` assigns `process.exitCode`. Keep it that way —
-it is what makes the whole CLI callable from a test without killing the test process.
+Invariants enforced in code, do not break them:
+
+- Only `bin/guardai.js` sets the exit code. Everything else returns a number.
+- Only `src/api/` performs HTTP to GuardAI. Only `src/output/github.js` talks to GitHub.
+- `src/api/` never prints and never exits.
+- Repository paths are always repo-relative with forward slashes.
+- Every unverified API assumption lives in `src/api/provisional-contract.js`.
 
 ---
 
@@ -89,76 +167,51 @@ it is what makes the whole CLI callable from a test without killing the test pro
 
 | # | Decision | Reason | Date |
 |---|----------|--------|------|
-| D1 | Implementation language: **Node.js (ESM)** | GitHub Actions runs JavaScript actions natively on all runners with no toolchain setup, which makes Phase 9 (reusable Action) simple. Node 24 is installed locally. | 2026-09-12 |
-| D2 | **Zero runtime dependencies** to start (no commander/yargs/axios) | The developer is learning CLI development; a ~30-line hand-rolled arg parser is readable and teaches how CLIs actually work. Node 24 has built-in `fetch`. Revisit when flag handling genuinely outgrows it — record the reason here if so. | 2026-09-12 |
-| D3 | Tests use the built-in **`node --test`** runner | No test-framework dependency; zero install. | 2026-09-12 |
-| D4 | CLI core stays **provider-neutral** | GitLab/Azure DevOps come later (Phase 12+); GitHub specifics live in the Actions layer only. | 2026-09-12 |
-| D5 | Any mock API lives in a file named `*mock*` and announces itself in output | Prevents a mock from ever being mistaken for the real GuardAI backend. | 2026-09-12 |
+| D1 | Node.js (ESM) | Runs natively on GitHub runners; makes the Action trivial | 2026-09-12 |
+| D2 | Zero runtime dependencies | Learner-readable, no supply-chain surface; Node 24 has built-in `fetch` | 2026-09-12 |
+| D3 | `node --test` for tests | No framework install | 2026-09-12 |
+| D4 | CLI core stays provider-neutral | GitLab later; GitHub specifics confined to `src/ci/` and `src/output/github.js` | 2026-09-12 |
+| D5 | Mock lives in `*mock*` file and announces itself everywhere | Can never be mistaken for a real GuardAI result | 2026-09-12 |
+| D6 | **No comments in any code file** | Developer's explicit instruction. Meaning carried by names, runtime output and markdown docs. Recorded in `CLAUDE.md` §6a. | 2026-09-12 |
+| D7 | Four exit codes, `1` != `3` | A pipeline must distinguish a non-compliant change from a broken scanner | 2026-09-12 |
+| D8 | Default `--fail-on medium` | Matches the demo in `context.md`. **Open question: should the API own this threshold?** | 2026-09-12 |
+| D9 | Composite Action, not a bundled JS Action | No build step, no `dist/`, no `@actions/core` dependency; readable YAML | 2026-09-12 |
+| D10 | Action inputs passed as env vars, never interpolated into the bash script | Prevents script injection, a real vulnerability in many public Actions | 2026-09-12 |
+| D11 | Only `.tf` and `.tfvars` scanned | Adding extensions would claim support the backend does not have | 2026-09-12 |
+| D12 | Malformed API response -> `ContractMismatchError` -> exit 3 | A silent pass on an unparseable response would be a security failure | 2026-09-12 |
+| D13 | PR comment upserts via a hidden marker | Re-runs update one comment instead of spamming the PR | 2026-09-12 |
+| D14 | `.gitattributes` forces LF | The Action's bash script would break with CRLF on Linux runners | 2026-09-12 |
 
 ---
 
 ## 6. API Information Discovered
 
-**None.** The GuardAI backend API contract is **not present in this repository**
-and has not been provided.
+**Still none.** The contract has not been provided.
 
-Confirmed by inspection this session: the project root contains only `context.md`,
-which describes intent but specifies **no** endpoints, schemas, or auth details.
+The full list of 25 blocking questions, the provisional assumptions, and the exact
+change plan for when answers arrive now live in **`docs/API-CONTRACT.md`**. That file
+is the single source of truth for this gap. Keep it updated.
 
-### Open API questions (blocking Phase 3)
+Summary of what is provisional and unverified:
+`POST {base}/v1/scans`, `Authorization: Bearer`, JSON body `{client, repository,
+trigger, files[]}` with inline file contents, response `{scanId, passed, reportUrl,
+findings[]}`, synchronous scanning.
 
-These must be answered by the backend team before the real API client is written.
-Do not guess any of them.
-
-1. **Base URL** — production, and any staging/dev environment?
-2. **Endpoint path and HTTP method** for starting a scan?
-3. **Authentication** — header name, scheme (Bearer? `X-API-Key`?), token format,
-   and how a customer obtains a key?
-4. **Required headers** — content type, API version header, correlation/request id?
-5. **API versioning scheme** — URL path (`/v1/`), header, or none?
-6. **Request payload** — how is code sent?
-   - raw file contents in JSON?
-   - multipart upload / tar or zip archive?
-   - a git diff / patch?
-   - or just a git reference the backend clones itself?
-7. **Payload limits** — max request size, max file count, max single-file size, encoding.
-8. **Repository metadata fields expected** — owner, repo name, provider, branch,
-   commit SHA, default branch, clone URL?
-9. **Pull Request metadata fields expected** — PR number, base ref, head ref, base SHA,
-   head SHA, list of changed files?
-10. **Response schema** — top-level shape of a scan result.
-11. **Finding schema** — severity values (exact strings), file path, line/range, control
-    or policy id, title, description, remediation field?
-12. **Pass/fail semantics** — does the API return a verdict, or does the client decide
-    from severities? Is there a configurable threshold, and where does it live?
-13. **Synchronous or asynchronous?** If async: job id format, polling endpoint, poll
-    interval, terminal states, timeout.
-14. **Error responses** — status codes and error body format (auth failure, bad request,
-    payload too large, server error).
-15. **Rate limits** and recommended client timeout / retry behaviour.
-16. **Which file types the backend actually accepts today** (Terraform only? others?).
-
-Until these are answered, Phase 3 is blocked and any HTTP code would be invention.
+**None of that is confirmed. Do not treat any of it as real.**
 
 ---
 
 ## 7. GitHub Integration Details
 
-Nothing configured yet.
-
-- No git repository initialised locally yet.
-- No GitHub remote.
-- No demo repository (`guardai-demo`) created.
-- No workflow file.
-- `gh` CLI is installed (v2.95.0); auth status not yet checked.
-
-Needed later (Phase 6+), to be filled in when known:
-
-- Demo repo name / owner:
-- Workflow file path: `.github/workflows/guardai.yml`
-- Secret name for the API key: `GUARDAI_API_KEY` (proposed)
-- How the CLI is installed on the runner (npm install from repo path? published package?
-  bundled action?) — decision deferred to Phase 6.
+- Local repo: branch `main`, commit `4cbaed1`, clean tree.
+- Local git identity set **repository-only**: `ironrim <ironriminc@gmail.com>`.
+  Change with `git config user.name "..."` if wrong.
+- **No remote configured. Nothing pushed. No GitHub repository created.**
+  Claude must ask before creating or pushing to any remote.
+- `gh` CLI v2.95.0 installed; auth status never checked.
+- Secret names the workflows expect: `GUARDAI_API_URL`, `GUARDAI_API_KEY`.
+- The Action reference `YOUR-ORG/guardai-cli@main` in
+  `examples/demo-repo/guardai-workflow.yml` is a placeholder and must be replaced.
 
 ---
 
@@ -166,39 +219,45 @@ Needed later (Phase 6+), to be filled in when known:
 
 | Problem | Solution |
 |---------|----------|
-| Writing large files via bash heredoc failed in this shell wrapper (unexpected EOF). | Use the Write tool for multi-line file creation instead of heredocs. |
+| Bash heredocs failed in this shell wrapper ("unexpected EOF") | Use the Write tool for multi-line files |
+| `--path` was accepted but discovery still walked the git root | Split walk root from repo root: `discoverInfrastructureFiles(walkDir, repoRoot)`. Paths stay repo-relative so annotations land on the right file. |
+| Git warned that LF would become CRLF on 39 files | Added `.gitattributes` with `eol=lf`. CRLF would break the Action's bash script on Linux runners. |
+| No global git identity configured | Set repository-local identity; flagged to the developer |
+| Scanning the whole project exits 1 because of the failing fixture | Expected. The demo workflow scans specific `--path` directories. |
 
 ---
 
 ## 9. Next Exact Task
 
-**Blocked on the developer confirming the Phase 1 test run** (PowerShell,
-`$LASTEXITCODE` for each of the four commands in §3).
+**Get it onto GitHub and prove Phases 6-10 for real. Nothing in CI is proven until a
+workflow actually runs.**
 
-Once confirmed, the next step is **Phase 2, step 1: repository detection** — and
-nothing more. Specifically, `guardai scan` should answer "where am I?":
+In order:
 
-- Is the working directory inside a git repository? (`git rev-parse --show-toplevel`)
-- If yes: repository root, current branch, current commit SHA, and whether a remote
-  exists. If no: fall back to the working directory and say so plainly.
-- New module `src/repo/detect.js`. No file discovery yet, no HTTP, no exit-code change.
-- Must not crash when git is absent, when there is no remote, or when the repo has no
-  commits yet.
+1. **Ask the developer** before creating any remote. Then create the GitHub repository
+   and push `main`.
+2. Open a pull request (any trivial change) and watch the **Actions** tab.
+   Expected: `CI / Unit tests` green, `Clean infrastructure passes` green,
+   `Insecure infrastructure is blocked` green (having verified GuardAI failed).
+3. Confirm inline annotations appear in the PR **Files changed** tab.
+4. Enable `pr-comment: 'true'` on a branch and confirm the comment posts and then
+   *updates* rather than duplicating on a second push.
+5. Record every real result in §3 of this file.
 
-File discovery (which `.tf` files to send) is a **separate** step after that.
+**Then stop and wait for the API contract.** Phases 3 and 4 cannot proceed without it.
 
-Decision deferred until Phase 2 is underway: whether to run `git init` on this project
-and start committing per-phase branches. Ask the developer before running any git
-command that writes.
+Phase 11 (Marketplace) requires a public repository, a tagged release, and an owner
+decision. Phase 12 (GitLab) must not start until GitHub works against the real API.
 
 ---
 
 ## 10. Notes For Future Sessions
 
-- The developer is **learning** CLI development and CI/CD. Explain each concept before
-  building it, and hand over an explicit test procedure after building it. Then wait.
-- Do not skip phases. The phase table is in `CLAUDE.md` §4.
-- `context.md` contains a large future vision (AI remediation, 20+ platforms). It is
-  context, **not** a backlog to start on.
-- Development machine is Windows; CI runners are Linux. Watch path separators and
-  line endings.
+- The developer is **learning** CLI development and CI/CD. Explain in plain English,
+  give exact test commands, and say what the expected output is.
+- **No comments in code.** See `CLAUDE.md` §6a. Remove any comment found.
+- Do not claim CI works until a real workflow run has been observed.
+- `context.md` is the product vision, not a backlog. Do not start AI features,
+  dashboards, or extra platforms.
+- Development machine is Windows; runners are Linux. Watch path separators and line
+  endings.
