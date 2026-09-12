@@ -1,0 +1,17 @@
+{
+  "name": "guardai-cli",
+  "version": "0.1.0",
+  "description": "GuardAI integration CLI - scans infrastructure code via the GuardAI API",
+  "type": "module",
+  "bin": {
+    "guardai": "bin/guardai.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "private": true,
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,97 @@
+name: 'GuardAI Scan'
+description: 'Scan infrastructure code with GuardAI and fail the job when governance violations are found'
+author: 'GuardAI'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  api-url:
+    description: 'Base URL of the GuardAI API'
+    required: false
+    default: ''
+  api-key:
+    description: 'GuardAI API key. Always pass this from a repository secret, never as literal text.'
+    required: false
+    default: ''
+  path:
+    description: 'Directory to scan'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'Minimum severity that fails the job: info, low, medium, high or critical'
+    required: false
+    default: 'medium'
+  changed-only:
+    description: 'Scan only infrastructure files changed since the base branch'
+    required: false
+    default: 'false'
+  pr-comment:
+    description: 'Post or update a result comment on the pull request'
+    required: false
+    default: 'false'
+  github-token:
+    description: 'Token used to post the pull request comment. Pass ${{ github.token }} and grant pull-requests: write.'
+    required: false
+    default: ''
+  mock:
+    description: 'Use the local mock scanner instead of the GuardAI API. For pipeline testing only.'
+    required: false
+    default: 'false'
+  node-version:
+    description: 'Node.js version used to run the CLI'
+    required: false
+    default: '20'
+
+outputs:
+  passed:
+    description: 'true when the scan passed, false when violations were found'
+    value: ${{ steps.guardai-scan.outputs.passed }}
+  findings-count:
+    description: 'Total number of findings returned by GuardAI'
+    value: ${{ steps.guardai-scan.outputs.findings-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run GuardAI scan
+      id: guardai-scan
+      shell: bash
+      env:
+        GUARDAI_API_URL: ${{ inputs.api-url }}
+        GUARDAI_API_KEY: ${{ inputs.api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_CHANGED_ONLY: ${{ inputs.changed-only }}
+        INPUT_PR_COMMENT: ${{ inputs.pr-comment }}
+        INPUT_MOCK: ${{ inputs.mock }}
+      run: |
+        options=(--path "$INPUT_PATH" --fail-on "$INPUT_FAIL_ON")
+
+        if [ "$INPUT_CHANGED_ONLY" = "true" ]; then
+          options+=(--changed)
+        fi
+
+        if [ "$INPUT_PR_COMMENT" = "true" ]; then
+          options+=(--pr-comment)
+        fi
+
+        if [ "$INPUT_MOCK" = "true" ]; then
+          options+=(--mock)
+        fi
+
+        set +e
+        node "$GITHUB_ACTION_PATH/bin/guardai.js" scan "${options[@]}"
+        scan_exit_code=$?
+        set -e
+
+        echo "exit-code=$scan_exit_code" >> "$GITHUB_OUTPUT"
+
+        exit $scan_exit_code
