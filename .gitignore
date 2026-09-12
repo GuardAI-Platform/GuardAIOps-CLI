@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+
+# Secrets - never commit credentials or API keys
+.env
+.env.*
+*.pem
+*.key
+
+# Logs
+npm-debug.log*
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

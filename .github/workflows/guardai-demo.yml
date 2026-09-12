@@ -1,0 +1,62 @@
+name: GuardAI End-to-End Demo
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  clean-infrastructure-should-pass:
+    name: Clean infrastructure passes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: GuardAI Scan
+        id: scan
+        uses: ./
+        with:
+          path: examples/demo-repo/passing
+          fail-on: medium
+          mock: 'true'
+
+      - name: Show the action outputs
+        run: |
+          echo "passed=${{ steps.scan.outputs.passed }}"
+          echo "findings-count=${{ steps.scan.outputs.findings-count }}"
+
+  insecure-infrastructure-should-fail:
+    name: Insecure infrastructure is blocked
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: GuardAI Scan
+        id: scan
+        continue-on-error: true
+        uses: ./
+        with:
+          path: examples/demo-repo/failing
+          fail-on: medium
+          mock: 'true'
+
+      - name: Verify GuardAI blocked the insecure change
+        run: |
+          echo "GuardAI step outcome: ${{ steps.scan.outcome }}"
+          if [ "${{ steps.scan.outcome }}" != "failure" ]; then
+            echo "Expected GuardAI to fail on the insecure fixture, but it did not."
+            exit 1
+          fi
+          echo "GuardAI correctly failed the insecure infrastructure."

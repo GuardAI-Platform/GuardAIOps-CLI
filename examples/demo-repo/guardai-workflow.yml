@@ -1,0 +1,30 @@
+name: GuardAI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  guardai:
+    name: Infrastructure Governance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: GuardAI Scan
+        uses: YOUR-ORG/guardai-cli@main
+        with:
+          api-url: ${{ secrets.GUARDAI_API_URL }}
+          api-key: ${{ secrets.GUARDAI_API_KEY }}
+          fail-on: medium
+          changed-only: 'true'
+          pr-comment: 'true'
+          github-token: ${{ github.token }}
