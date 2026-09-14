@@ -24,6 +24,15 @@ function resolveBaseRef(rootDirectory, requestedBase) {
     if (process.env.GITHUB_BASE_REF) {
       candidates.push(`origin/${process.env.GITHUB_BASE_REF}`, process.env.GITHUB_BASE_REF);
     }
+    if (process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME) {
+      candidates.push(
+        `origin/${process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME}`,
+        process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME,
+      );
+    }
+    if (process.env.CI_DEFAULT_BRANCH) {
+      candidates.push(`origin/${process.env.CI_DEFAULT_BRANCH}`, process.env.CI_DEFAULT_BRANCH);
+    }
     candidates.push('origin/main', 'main', 'origin/master', 'master');
   }
 

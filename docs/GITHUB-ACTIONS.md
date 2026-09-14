@@ -56,7 +56,7 @@ jobs:
           fetch-depth: 0
 
       - name: GuardAI Scan
-        uses: YOUR-ORG/guardai-cli@main
+        uses: prashantchawla3/GuardAI-CLI@main
         with:
           api-key: ${{ secrets.GUARDAI_API_KEY }}
 ```
@@ -174,6 +174,8 @@ job summary.
 ## 9. What is deliberately not built yet
 
 - Publishing to the GitHub Marketplace (Phase 11).
-- GitLab CI and Azure DevOps (Phase 12+).
+- Azure DevOps and other CI systems.
 - A formal GitHub Check Run with its own UI panel. The current red/green check plus
   annotations covers the need without requiring extra permissions.
+
+GitLab CI **is** supported. See [GITLAB.md](GITLAB.md).

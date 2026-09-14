@@ -20,7 +20,7 @@ jobs:
           fetch-depth: 0
 
       - name: GuardAI Scan
-        uses: YOUR-ORG/guardai-cli@main
+        uses: prashantchawla3/GuardAI-CLI@main
         with:
           api-url: ${{ secrets.GUARDAI_API_URL }}
           api-key: ${{ secrets.GUARDAI_API_KEY }}

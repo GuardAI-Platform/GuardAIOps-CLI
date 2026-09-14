@@ -25,7 +25,5 @@ in `src/api/mock-client.js`, not from GuardAI. See `docs/API-CONTRACT.md`.
 
 1. Create a repository called `guardai-demo`.
 2. Copy `guardai-workflow.yml` to `.github/workflows/guardai.yml` in it.
-3. Replace `YOUR-ORG/guardai-cli@main` with the real location of this repository.
-4. Add `GUARDAI_API_URL` and `GUARDAI_API_KEY` as repository secrets, or set
-   `mock: 'true'` until the API contract is available.
-5. Add infrastructure code, open a pull request, and watch the check.
+3. Add `GUARDAI_API_URL` and `GUARDAI_API_KEY` as repository secrets, or set `mock: 'true'` until the API contract is available.
+4. Add infrastructure code, open a pull request, and watch the check.

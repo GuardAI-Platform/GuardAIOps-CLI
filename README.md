@@ -6,11 +6,13 @@ Add one step to your pipeline and have your infrastructure changes evaluated bef
 they reach production.
 
 ```
-Pull Request -> GitHub Actions -> GuardAI CLI -> GuardAI API -> PASS / FAIL
+Pull / Merge Request -> CI -> GuardAI CLI -> GuardAI API -> PASS / FAIL
 ```
 
-This repository contains the CLI, the reusable GitHub Action that wraps it, and a
-demo showing a pull request being blocked and then passing.
+GitHub is the primary target. GitLab uses the same CLI.
+
+This repository contains the CLI, the reusable GitHub Action that wraps it, a GitLab
+CI template, and a demo showing a pull request being blocked and then passing.
 
 It does **not** contain the GuardAI policy engine, controls, or API. Those are built
 by the backend team.
@@ -32,7 +34,7 @@ by the backend team.
 | 9 | Reusable GitHub Action | Done |
 | 10 | PR reporting | Done (annotations, job summary, PR comment) |
 | 11 | Marketplace distribution | Not started |
-| 12 | GitLab | Not started |
+| 12 | GitLab | Implemented, **not yet run on a real GitLab project** |
 
 **Phases 3 and 4 cannot be completed until the backend team provides the API
 contract.** See [docs/API-CONTRACT.md](docs/API-CONTRACT.md) for the exact list of
@@ -84,7 +86,8 @@ guardai help
 | `--base <ref>` | Base git reference for `--changed`. |
 | `--fail-on <level>` | Minimum severity that fails the scan. Default `medium`. One of `info`, `low`, `medium`, `high`, `critical`. |
 | `--mock` | Use the local mock scanner instead of the API. |
-| `--pr-comment` | Post or update a result comment on the pull request. |
+| `--comment` | Post or update a result comment on the pull or merge request. `--pr-comment` and `--mr-comment` are aliases. |
+| `--code-quality-file <path>` | GitLab only: write a Code Quality report artifact. |
 | `--json` | Print machine-readable JSON instead of text. |
 | `--help` | Show usage. |
 
@@ -96,6 +99,8 @@ guardai help
 | `GUARDAI_API_KEY` | GuardAI API key. Never printed or logged. |
 | `GUARDAI_TIMEOUT_MS` | Request timeout. Default 60000. |
 | `GUARDAI_MOCK` | Set to `1` to force mock mode. |
+| `GITHUB_TOKEN` | GitHub token used to post the PR comment. |
+| `GITLAB_TOKEN` | GitLab token with `api` scope, used to post the MR note. |
 
 ---
 
@@ -153,7 +158,7 @@ jobs:
           fetch-depth: 0
 
       - name: GuardAI Scan
-        uses: YOUR-ORG/guardai-cli@main
+        uses: prashantchawla3/GuardAI-CLI@main
         with:
           api-url: ${{ secrets.GUARDAI_API_URL }}
           api-key: ${{ secrets.GUARDAI_API_KEY }}
@@ -188,6 +193,16 @@ Full explanation for newcomers to CI/CD: [docs/GITHUB-ACTIONS.md](docs/GITHUB-AC
 
 ---
 
+## Use in GitLab CI
+
+Copy `examples/demo-repo/gitlab-ci-template.yml` to `.gitlab-ci.yml`. Findings appear
+in the merge request Code Quality widget. See [docs/GITLAB.md](docs/GITLAB.md).
+
+GitLab support is implemented and unit-tested but **has not yet been run on a real
+GitLab project**.
+
+---
+
 ## Repository layout
 
 ```
@@ -208,7 +223,9 @@ src/api/client.js                   HTTP client
 src/api/provisional-contract.js     every unverified API assumption
 src/api/mock-client.js              labelled mock, not a real scanner
 src/output/report.js                terminal output
+src/output/summary.js               provider-neutral markdown summary
 src/output/github.js                annotations, job summary, PR comment
+src/output/gitlab.js                code quality report, MR note
 test/                               node --test suite
 examples/demo-repo/                 passing and failing demo fixtures
 action.yml                          the reusable GitHub Action
