@@ -29,10 +29,19 @@ Phase 11 is not started.**
 | 11 | Marketplace distribution | Not started |
 | 12 | GitLab | **Implemented at the developer's explicit request, ahead of phase order.** Unit-tested and verified against a simulated GitLab runner. **Never run on a real GitLab project.** |
 
-**Pushed to https://github.com/prashantchawla3/GuardAI-CLI (public).**
-Repo created 2026-09-14 under account `prashantchawla3`. Branch `main` plus
-`demo/prove-pipeline` (PR #1). GitHub name is `GuardAI-CLI` because GitHub does not
-allow spaces in repository names.
+**Lives at https://github.com/GuardAI-Platform/GuardAIOps-CLI (public).**
+
+It sits alongside the other two org repos, which are private:
+`GuardAIOps-Backend` (the API this CLI will call) and `GaurdAIOps-Frontend`.
+
+History: first created 2026-09-14 as `prashantchawla3/GuardAI-CLI`, then transferred
+into the `GuardAI-Platform` org and renamed to `GuardAIOps-CLI` the same day. Nothing
+remains under the personal account. GitHub does not allow spaces in repository names,
+so "GuardAIOps CLI" is `GuardAIOps-CLI`.
+
+**This repo must stay public.** A GitHub Action inside a private repo cannot be used by
+any other account, which would make the whole integration unusable for customers. The
+GitLab template also clones it over plain https. If it is ever made private, both break.
 
 ---
 
@@ -255,7 +264,7 @@ findings[]}`, synchronous scanning.
   Claude must ask before creating or pushing to any remote.
 - `gh` CLI v2.95.0 installed; auth status never checked.
 - Secret names the workflows expect: `GUARDAI_API_URL`, `GUARDAI_API_KEY`.
-- All Action references now point at `prashantchawla3/GuardAI-CLI@main`.
+- All Action references now point at `GuardAI-Platform/GuardAIOps-CLI@main`.
 
 ---
 
@@ -275,11 +284,10 @@ findings[]}`, synchronous scanning.
 
 ## 9. Next Exact Task
 
-**Merge PR #1.** `main` currently carries the broken `action.yml`, so any customer
-pointing at `prashantchawla3/GuardAI-CLI@main` right now would hit the manifest error.
-The fix is on `demo/prove-pipeline` and is verified green. This is the priority.
+PR #1 is merged and `main` carries the fixed `action.yml`. `demo/prove-pipeline` was
+deleted after merge.
 
-Then, in order:
+In order:
 
 1. Prove the **PR comment** — the last unproven piece of Phase 10. Add
    `pr-comment: 'true'` and `github-token` to the demo workflow, open a PR, confirm the

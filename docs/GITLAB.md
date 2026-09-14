@@ -45,7 +45,7 @@ guardai:
 
   before_script:
     - apk add --no-cache git
-    - git clone --depth 1 https://github.com/prashantchawla3/GuardAI-CLI.git /opt/guardai
+    - git clone --depth 1 https://github.com/GuardAI-Platform/GuardAIOps-CLI.git /opt/guardai
 
   script:
     - node /opt/guardai/bin/guardai.js scan
