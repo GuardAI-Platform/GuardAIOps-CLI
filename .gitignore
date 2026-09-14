@@ -16,3 +16,7 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+context.md
+CLAUDE.md
+memory.md
