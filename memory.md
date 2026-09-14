@@ -88,7 +88,7 @@ GitLab template also clones it over plain https. If it is ever made private, bot
 |------|------|
 | `action.yml` | Composite reusable Action. Inputs passed via env, never interpolated into the shell. |
 | `.github/workflows/ci.yml` | Runs `npm test` on push/PR |
-| `.github/workflows/guardai-demo.yml` | Two jobs: clean passes; insecure is blocked and verified |
+| `.github/workflows/guardai-demo.yml` | Three jobs: clean passes; the published `GuardAI-Platform/GuardAIOps-CLI@main` reference resolves; insecure is blocked and verified |
 | `examples/demo-repo/guardai-workflow.yml` | GitHub workflow template for a customer repository |
 | `examples/demo-repo/gitlab-ci-template.yml` | GitLab CI template for a customer repository |
 | `examples/demo-repo/passing/main.tf` | Clean Terraform fixture |
@@ -235,6 +235,8 @@ Invariants enforced in code, do not break them:
 | D19 | No GitLab container image or CI/CD component yet | The clone-in-`before_script` template works without a release process; packaging is an improvement, not functionality | 2026-09-14 |
 | D20 | Repository is **public** | An Action in a private repo cannot be used by any other account, which would defeat the product. Developer chose public knowingly. | 2026-09-14 |
 | D21 | Demo assertions check the exact exit code, not just "did it fail" | A manifest error made the step fail, and the old assertion read that as success. A false green is worse than a red. | 2026-09-14 |
+| D22 | Repo **transferred** into the org rather than deleted and recreated | Preserves commit history and the PR #1 record that proves the pipeline worked. Transfer also removes it from the personal account, and GitHub leaves a redirect from the old URL. | 2026-09-14 |
+| D23 | The demo workflow tests both `uses: ./` and the published org reference | `uses: ./` never exercises the path a customer actually writes. A broken published reference would otherwise go unnoticed. | 2026-09-14 |
 
 ---
 
