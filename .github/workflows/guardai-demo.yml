@@ -52,11 +52,40 @@ jobs:
           fail-on: medium
           mock: 'true'
 
-      - name: Verify GuardAI blocked the insecure change
+      - name: Verify the action reported violations and not a crash
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+          SCAN_FINDINGS: ${{ steps.scan.outputs.findings-count }}
         run: |
-          echo "GuardAI step outcome: ${{ steps.scan.outcome }}"
-          if [ "${{ steps.scan.outcome }}" != "failure" ]; then
-            echo "Expected GuardAI to fail on the insecure fixture, but it did not."
+          echo "outcome=$SCAN_OUTCOME exit-code=$SCAN_EXIT_CODE findings=$SCAN_FINDINGS"
+
+          if [ "$SCAN_OUTCOME" != "failure" ]; then
+            echo "Expected the GuardAI step to fail on the insecure fixture."
             exit 1
           fi
-          echo "GuardAI correctly failed the insecure infrastructure."
+
+          if [ "$SCAN_EXIT_CODE" != "1" ]; then
+            echo "Expected exit code 1 (violations found) but got '$SCAN_EXIT_CODE'."
+            echo "An empty value means the action never ran. Exit code 3 means GuardAI itself failed."
+            exit 1
+          fi
+
+          if [ -z "$SCAN_FINDINGS" ] || [ "$SCAN_FINDINGS" -lt 1 ]; then
+            echo "Expected at least one finding but got '$SCAN_FINDINGS'."
+            exit 1
+          fi
+
+          echo "GuardAI correctly blocked the insecure infrastructure with $SCAN_FINDINGS findings."
+
+      - name: Verify the CLI exit code directly
+        run: |
+          set +e
+          node bin/guardai.js scan --mock --path examples/demo-repo/failing > /dev/null 2>&1
+          code=$?
+          set -e
+          if [ "$code" != "1" ]; then
+            echo "Expected the CLI to exit 1 on the insecure fixture, got $code."
+            exit 1
+          fi
+          echo "CLI exit code contract holds: 1 means violations found."

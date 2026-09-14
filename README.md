@@ -190,6 +190,7 @@ Full explanation for newcomers to CI/CD: [docs/GITHUB-ACTIONS.md](docs/GITHUB-AC
 |--------|---------|
 | `passed` | `true` or `false`. |
 | `findings-count` | Total findings returned. |
+| `exit-code` | Raw CLI exit code: `0`, `1`, `2` or `3`. |
 
 ---
 
