@@ -1,4 +1,4 @@
-# GuardAI CLI
+# GuardAIOps CLI
 
 The developer-facing integration layer for GuardAI.
 
