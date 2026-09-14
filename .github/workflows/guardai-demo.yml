@@ -33,6 +33,34 @@ jobs:
           echo "passed=${{ steps.scan.outputs.passed }}"
           echo "findings-count=${{ steps.scan.outputs.findings-count }}"
 
+  published-action-reference-works:
+    name: Published action reference works
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: GuardAI Scan via the published reference
+        id: scan
+        uses: GuardAI-Platform/GuardAIOps-CLI@main
+        with:
+          path: examples/demo-repo/passing
+          fail-on: medium
+          mock: 'true'
+
+      - name: Confirm the action resolved and ran
+        env:
+          SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+        run: |
+          if [ "$SCAN_EXIT_CODE" != "0" ]; then
+            echo "Expected exit code 0 from the published action, got '$SCAN_EXIT_CODE'."
+            exit 1
+          fi
+          echo "Customers can use: uses: GuardAI-Platform/GuardAIOps-CLI@main"
+
   insecure-infrastructure-should-fail:
     name: Insecure infrastructure is blocked
     runs-on: ubuntu-latest
