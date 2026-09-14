@@ -21,16 +21,18 @@ Phase 11 is not started.**
 | 3 | GuardAI API client | Structure done. **BLOCKED: no API contract.** |
 | 4 | Real scan results | **BLOCKED: no API contract.** Mock proves the path. |
 | 5 | Correct exit codes | Done, all four verified |
-| 6 | Run CLI inside GitHub Actions | Implemented; verified by simulating the runner locally. **Not yet run on GitHub.** |
-| 7 | Trigger from Pull Requests | Workflow written. **Not yet run on GitHub.** |
-| 8 | End-to-end PASS/FAIL demo | Works locally in mock mode. **Not yet demonstrated on a real PR.** |
-| 9 | Reusable GitHub Action | `action.yml` written. **Not yet run on GitHub.** |
-| 10 | PR reporting | Annotations, job summary, step outputs verified locally. PR comment code written but **never executed against the GitHub API.** |
+| 6 | Run CLI inside GitHub Actions | **PROVEN on a real ubuntu-latest runner.** 39 tests pass on Linux. |
+| 7 | Trigger from Pull Requests | **PROVEN.** PR #1 triggered both demo jobs. |
+| 8 | End-to-end PASS/FAIL demo | **PROVEN in mock mode on a real PR.** Clean passes, insecure blocked with exit code 1. |
+| 9 | Reusable GitHub Action | **PROVEN.** Composite action loads, runs, and propagates outputs even when the step fails. |
+| 10 | PR reporting | Annotations **PROVEN** on a real PR (5 on correct file/lines). Job summary and outputs proven. PR comment still **never executed** against the GitHub API. |
 | 11 | Marketplace distribution | Not started |
 | 12 | GitLab | **Implemented at the developer's explicit request, ahead of phase order.** Unit-tested and verified against a simulated GitLab runner. **Never run on a real GitLab project.** |
 
-Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean tree.
-**No GitHub remote exists. Nothing has been pushed.**
+**Pushed to https://github.com/prashantchawla3/GuardAI-CLI (public).**
+Repo created 2026-09-14 under account `prashantchawla3`. Branch `main` plus
+`demo/prove-pipeline` (PR #1). GitHub name is `GuardAI-CLI` because GitHub does not
+allow spaces in repository names.
 
 ---
 
@@ -148,14 +150,29 @@ With `GITHUB_ACTIONS=true`, `GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` set to tem
 `grep -rnE '^\s*(//|/\*|\*)'` over `src bin test` -> none.
 `grep -rnE '^\s*#'` over `*.yml` -> none. Shebang in `bin/guardai.js` preserved.
 
+### 2026-09-14 — REAL GitHub run, PR #1
+Repo pushed public. Observed directly:
+
+| Check | Result |
+|-------|--------|
+| CI / Unit tests | green, `39 pass / 0 fail` on `ubuntu-latest` |
+| Clean infrastructure passes | green, `PASS - no violations found` |
+| Insecure infrastructure is blocked | green, `outcome=failure exit-code=1 findings=5` |
+
+Annotations confirmed via the check-runs API — 5 `failure` annotations on
+`examples/demo-repo/failing/main.tf` at lines 9, 11, 22, 31, 33, each titled with the
+GuardAI finding. Phases 6, 7, 8, 9 and the annotation half of 10 are now real, not simulated.
+
+Also learned: composite action outputs **do** propagate to the caller even when the
+inner step exits non-zero. The hardened verification depends on that and it held.
+
 ### NOT tested — be honest about these
-- **Nothing has run on GitHub.** No workflow run, no real PR.
-  Phases 6, 7, 8, 9, 10 are therefore *implemented but unproven in the real environment*.
 - **Nothing has run on GitLab.** No real project, no MR pipeline, no Code Quality widget
   observed, and `postMergeRequestNote` has never reached the GitLab API.
-- The PR comment code path has **never** executed against the GitHub API.
+- The **PR comment** code path has still never executed against the GitHub API.
+  `--comment` was not enabled on PR #1. This is the last unproven piece of Phase 10.
 - `src/api/client.js` has **never** made a real request — there is no API to call.
-- No test on Linux; all local runs were Windows.
+- Linux is now covered by the GitHub runner. GitLab remains entirely unproven.
 
 ---
 
@@ -207,6 +224,8 @@ Invariants enforced in code, do not break them:
 | D17 | GitLab inline findings use a Code Quality report artifact | GitLab has no annotation commands; the Code Quality artifact is the supported way to show findings on an MR diff | 2026-09-14 |
 | D18 | GitLab notes require `GITLAB_TOKEN`, not `CI_JOB_TOKEN` | `CI_JOB_TOKEN` has no access to the notes API. Missing token skips the note; it never fails the scan. | 2026-09-14 |
 | D19 | No GitLab container image or CI/CD component yet | The clone-in-`before_script` template works without a release process; packaging is an improvement, not functionality | 2026-09-14 |
+| D20 | Repository is **public** | An Action in a private repo cannot be used by any other account, which would defeat the product. Developer chose public knowingly. | 2026-09-14 |
+| D21 | Demo assertions check the exact exit code, not just "did it fail" | A manifest error made the step fail, and the old assertion read that as success. A false green is worse than a red. | 2026-09-14 |
 
 ---
 
@@ -244,6 +263,8 @@ findings[]}`, synchronous scanning.
 
 | Problem | Solution |
 |---------|----------|
+| `action.yml` refused to load: `Unrecognized named-value: 'github'` | An input **description** contained a `${{ github.token }}` expression. GitHub evaluates expressions inside the manifest, and the `github` context is not available there. Reworded the description in prose. **Never put `${{ }}` in an action input description.** |
+| The insecure-infrastructure demo job passed while the action was completely broken | The assertion only checked `outcome == 'failure'`, which a manifest error satisfies. Now it asserts `exit-code == 1` **and** `findings-count >= 1`, plus an independent direct CLI exit-code check. |
 | Bash heredocs failed in this shell wrapper ("unexpected EOF") | Use the Write tool for multi-line files |
 | `--path` was accepted but discovery still walked the git root | Split walk root from repo root: `discoverInfrastructureFiles(walkDir, repoRoot)`. Paths stay repo-relative so annotations land on the right file. |
 | Git warned that LF would become CRLF on 39 files | Added `.gitattributes` with `eol=lf`. CRLF would break the Action's bash script on Linux runners. |
@@ -254,25 +275,27 @@ findings[]}`, synchronous scanning.
 
 ## 9. Next Exact Task
 
-**Get it onto GitHub and prove Phases 6-10 for real. Nothing in CI is proven until a
-workflow actually runs.**
+**Merge PR #1.** `main` currently carries the broken `action.yml`, so any customer
+pointing at `prashantchawla3/GuardAI-CLI@main` right now would hit the manifest error.
+The fix is on `demo/prove-pipeline` and is verified green. This is the priority.
 
-In order:
+Then, in order:
 
-1. **Ask the developer** before creating any remote. Then create the GitHub repository
-   and push `main`.
-2. Open a pull request (any trivial change) and watch the **Actions** tab.
-   Expected: `CI / Unit tests` green, `Clean infrastructure passes` green,
-   `Insecure infrastructure is blocked` green (having verified GuardAI failed).
-3. Confirm inline annotations appear in the PR **Files changed** tab.
-4. Enable `pr-comment: 'true'` on a branch and confirm the comment posts and then
-   *updates* rather than duplicating on a second push.
-5. Record every real result in §3 of this file.
+1. Prove the **PR comment** — the last unproven piece of Phase 10. Add
+   `pr-comment: 'true'` and `github-token` to the demo workflow, open a PR, confirm the
+   comment posts, then push a second commit and confirm it **updates** rather than
+   duplicating.
+2. **Send `docs/API-CONTRACT.md` to the backend team.** Phases 3 and 4 are blocked on
+   those 25 answers and nothing can substitute for them.
+3. Consider tagging `v1` so customers can pin `@v1` instead of `@main`. Pinning to a
+   moving branch is poor practice for an Action.
 
-**Then stop and wait for the API contract.** Phases 3 and 4 cannot proceed without it.
+**Do not start Phase 11 (Marketplace)** until the real API works end to end. Publishing
+a scanner that only has a mock behind it would be misleading.
 
-Phase 11 (Marketplace) requires a public repository, a tagged release, and an owner
-decision. Phase 12 (GitLab) must not start until GitHub works against the real API.
+**GitLab (Phase 12) is implemented but completely unproven.** It needs a real GitLab
+project, a merge request pipeline, and a `GITLAB_TOKEN` before any claim is made about
+it. See `docs/GITLAB.md` for the test procedure.
 
 ---
 
