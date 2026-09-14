@@ -28,7 +28,7 @@ by the backend team.
 | 3 | GuardAI API client | Structure done, **blocked on the API contract** |
 | 4 | Real scan results | Blocked on the API contract |
 | 5 | Correct exit codes | Done |
-| 6 | Run inside GitHub Actions | Done |
+| 6 | Run inside GitHub Actions | Done, verified on a real runner |
 | 7 | Trigger from pull requests | Done |
 | 8 | End-to-end PASS/FAIL demo | Done in mock mode |
 | 9 | Reusable GitHub Action | Done |
@@ -190,6 +190,7 @@ Full explanation for newcomers to CI/CD: [docs/GITHUB-ACTIONS.md](docs/GITHUB-AC
 |--------|---------|
 | `passed` | `true` or `false`. |
 | `findings-count` | Total findings returned. |
+| `exit-code` | Raw CLI exit code: `0`, `1`, `2` or `3`. |
 
 ---
 
