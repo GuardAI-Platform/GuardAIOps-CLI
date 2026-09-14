@@ -4,15 +4,15 @@ Persistent project memory. Every session: read this after `CLAUDE.md`.
 Update it whenever something is **actually built** or **actually tested**.
 Never record something as working that was not run.
 
-Last updated: 2026-09-12
+Last updated: 2026-09-14
 
 ---
 
 ## 1. Current Status
 
-**Phases 1, 2, 5, 6, 7, 9, 10 are implemented and tested locally.
+**Phases 1, 2, 5, 6, 7, 9, 10, 12 are implemented and tested locally.
 Phase 8 is proven in mock mode. Phases 3 and 4 are BLOCKED on the backend team.
-Phases 11 and 12 are not started.**
+Phase 11 is not started.**
 
 | Phase | Goal | State |
 |-------|------|-------|
@@ -27,7 +27,7 @@ Phases 11 and 12 are not started.**
 | 9 | Reusable GitHub Action | `action.yml` written. **Not yet run on GitHub.** |
 | 10 | PR reporting | Annotations, job summary, step outputs verified locally. PR comment code written but **never executed against the GitHub API.** |
 | 11 | Marketplace distribution | Not started |
-| 12 | GitLab | Not started (correctly deferred until GitHub works with the real API) |
+| 12 | GitLab | **Implemented at the developer's explicit request, ahead of phase order.** Unit-tested and verified against a simulated GitLab runner. **Never run on a real GitLab project.** |
 
 Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean tree.
 **No GitHub remote exists. Nothing has been pushed.**
@@ -45,6 +45,7 @@ Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean
 | `docs/API-CONTRACT.md` | The 25 blocking questions, the provisional assumptions, the change plan |
 | `docs/GITHUB-ACTIONS.md` | CI/CD explained from zero for a learner |
 | `docs/TESTING.md` | Copy-pasteable test procedure for every phase |
+| `docs/GITLAB.md` | GitLab CI integration, severity mapping, token caveat |
 | `examples/demo-repo/README.md` | Demo fixture guide |
 
 ### Source
@@ -61,13 +62,15 @@ Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean
 | `src/repo/detect.js` | git root, branch, commit, remote, provider, slug. Degrades safely without git. |
 | `src/repo/discover.js` | Walks for `.tf`/`.tfvars`; ignore-list; limits 500 files / 1 MB / 20 MB |
 | `src/repo/changed.js` | `git diff --name-only --diff-filter=ACMR base...HEAD` |
-| `src/ci/context.js` | GitHub Actions env + event payload -> PR number, base/head ref, run URL |
+| `src/ci/context.js` | Detects GitHub Actions **or** GitLab CI -> normalized context (PR/MR id, project id, base/head ref, run URL) |
 | `src/api/config.js` | Env/flag config. **No invented defaults.** Enforces https except localhost. |
 | `src/api/client.js` | The only HTTP code. Never prints keys or response bodies. |
 | `src/api/provisional-contract.js` | **Every unverified API assumption, isolated here.** |
 | `src/api/mock-client.js` | Labelled mock. 5 regex patterns. Warns loudly on every run. |
 | `src/output/report.js` | Terminal rendering |
+| `src/output/summary.js` | Provider-neutral markdown summary + comment marker |
 | `src/output/github.js` | Annotations, job summary, step outputs, PR comment upsert |
+| `src/output/gitlab.js` | Code Quality report artifact, MR note upsert |
 
 ### CI / packaging
 | File | Role |
@@ -75,7 +78,8 @@ Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean
 | `action.yml` | Composite reusable Action. Inputs passed via env, never interpolated into the shell. |
 | `.github/workflows/ci.yml` | Runs `npm test` on push/PR |
 | `.github/workflows/guardai-demo.yml` | Two jobs: clean passes; insecure is blocked and verified |
-| `examples/demo-repo/guardai-workflow.yml` | Template for a customer repository |
+| `examples/demo-repo/guardai-workflow.yml` | GitHub workflow template for a customer repository |
+| `examples/demo-repo/gitlab-ci-template.yml` | GitLab CI template for a customer repository |
 | `examples/demo-repo/passing/main.tf` | Clean Terraform fixture |
 | `examples/demo-repo/failing/main.tf` | Deliberately insecure Terraform fixture |
 | `.gitattributes` | Forces LF so the Action's bash script works on Linux runners |
@@ -83,7 +87,8 @@ Local git repository initialised on branch `main`, one commit (`4cbaed1`), clean
 
 ### Tests
 `test/args.test.js`, `test/cli.test.js`, `test/discover.test.js`,
-`test/mock-client.test.js`, `test/provisional-contract.test.js`, `test/verdict.test.js`
+`test/gitlab.test.js`, `test/mock-client.test.js`, `test/provisional-contract.test.js`,
+`test/verdict.test.js`
 
 ---
 
@@ -95,6 +100,20 @@ Verified by Claude (bash) and independently **confirmed by the developer in Powe
 
 ### 2026-09-12 — Automated suite
 `node --test` -> **32 tests, 32 pass, 0 fail.** Run twice, after the full build.
+
+### 2026-09-14 — Automated suite after GitLab support
+`node --test` -> **39 tests, 39 pass, 0 fail.**
+
+### 2026-09-14 — GitLab, simulated runner
+With `GITLAB_CI=true`, `CI_PROJECT_PATH`, `CI_PROJECT_ID`, `CI_MERGE_REQUEST_IID=7`,
+`CI_API_V4_URL`, `CI_PIPELINE_SOURCE=merge_request_event`, scanning the failing fixture:
+- exit code `1`
+- Code Quality JSON artifact written; `high` mapped to `critical`, `medium` to `major`,
+  with repo-relative `location.path` and `location.lines.begin`
+- MR note **correctly skipped** with the message explaining `GITLAB_TOKEN` is required
+  and that `CI_JOB_TOKEN` cannot post notes
+- GitHub path re-verified unchanged after the refactor: 5 annotations, `passed=false`,
+  `findings-count=5`, job summary written
 
 ### 2026-09-12 — Exit codes (all four observed)
 | Command | Result | Code |
@@ -130,8 +149,10 @@ With `GITHUB_ACTIONS=true`, `GITHUB_STEP_SUMMARY` and `GITHUB_OUTPUT` set to tem
 `grep -rnE '^\s*#'` over `*.yml` -> none. Shebang in `bin/guardai.js` preserved.
 
 ### NOT tested — be honest about these
-- **Nothing has run on GitHub.** No push, no remote, no workflow run, no real PR.
+- **Nothing has run on GitHub.** No workflow run, no real PR.
   Phases 6, 7, 8, 9, 10 are therefore *implemented but unproven in the real environment*.
+- **Nothing has run on GitLab.** No real project, no MR pipeline, no Code Quality widget
+  observed, and `postMergeRequestNote` has never reached the GitLab API.
 - The PR comment code path has **never** executed against the GitHub API.
 - `src/api/client.js` has **never** made a real request — there is no API to call.
 - No test on Linux; all local runs were Windows.
@@ -181,6 +202,11 @@ Invariants enforced in code, do not break them:
 | D12 | Malformed API response -> `ContractMismatchError` -> exit 3 | A silent pass on an unparseable response would be a security failure | 2026-09-12 |
 | D13 | PR comment upserts via a hidden marker | Re-runs update one comment instead of spamming the PR | 2026-09-12 |
 | D14 | `.gitattributes` forces LF | The Action's bash script would break with CRLF on Linux runners | 2026-09-12 |
+| D15 | GitLab built ahead of phase order | Developer asked for it explicitly. Concern raised that GitHub is still unproven on a real PR; developer proceeded. | 2026-09-14 |
+| D16 | Markdown summary moved to `src/output/summary.js` | Both providers render the same table; keeps provider modules to transport only | 2026-09-14 |
+| D17 | GitLab inline findings use a Code Quality report artifact | GitLab has no annotation commands; the Code Quality artifact is the supported way to show findings on an MR diff | 2026-09-14 |
+| D18 | GitLab notes require `GITLAB_TOKEN`, not `CI_JOB_TOKEN` | `CI_JOB_TOKEN` has no access to the notes API. Missing token skips the note; it never fails the scan. | 2026-09-14 |
+| D19 | No GitLab container image or CI/CD component yet | The clone-in-`before_script` template works without a release process; packaging is an improvement, not functionality | 2026-09-14 |
 
 ---
 
@@ -210,8 +236,7 @@ findings[]}`, synchronous scanning.
   Claude must ask before creating or pushing to any remote.
 - `gh` CLI v2.95.0 installed; auth status never checked.
 - Secret names the workflows expect: `GUARDAI_API_URL`, `GUARDAI_API_KEY`.
-- The Action reference `YOUR-ORG/guardai-cli@main` in
-  `examples/demo-repo/guardai-workflow.yml` is a placeholder and must be replaced.
+- All Action references now point at `prashantchawla3/GuardAI-CLI@main`.
 
 ---
 

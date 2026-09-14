@@ -72,8 +72,10 @@ Hard rules:
 - **Output code never performs I/O beyond writing to stdout/stderr.**
 - **Only `src/cli.js` (or `bin/guardai`) decides the process exit code.**
 - Repository/file logic must work identically on a laptop and on a CI runner.
-- No GitHub-specific logic inside the CLI core. GitHub specifics belong in the
-  GitHub Actions layer (workflow / action wrapper), so GitLab can reuse the core later.
+- No provider-specific logic inside the CLI core. GitHub specifics live in
+  `src/output/github.js`, GitLab specifics in `src/output/gitlab.js`, and provider
+  detection in `src/ci/context.js`. Shared rendering belongs in `src/output/summary.js`.
+  Adding a provider must not require touching `src/repo/`, `src/api/`, or `src/verdict.js`.
 
 Runtime decision: **Node.js (ESM)**. Reason: GitHub Actions runs JavaScript actions
 natively on every runner with no toolchain install, which makes Phase 9 (reusable
@@ -106,7 +108,7 @@ Phase sequence (do not jump ahead without a technical reason):
 | 9  | Package as a reusable GitHub Action |
 | 10 | Improve PR reporting |
 | 11 | GitHub distribution / Marketplace |
-| 12 | GitLab integration |
+| 12 | GitLab integration (implemented ahead of order at the developer's explicit request) |
 
 The current phase and the exact next task are recorded in `memory.md`. That file wins
 on "where are we"; this file wins on "how do we work".
@@ -266,7 +268,7 @@ Do not build any of these until the phase table reaches them:
 - Policy/control/rule engines or any local scanning logic
 - AI explanation, remediation, dependency or business-impact analysis
 - Web dashboards, UIs, servers, databases, containers, cloud infrastructure
-- GitLab, Azure DevOps, Harness, or any non-GitHub CI
+- Azure DevOps, Harness, or any CI beyond GitHub and GitLab
 - Marketplace publishing
 - Support for CDK / CloudFormation / ARM / Bicep / Helm / Ansible / K8s parsing
 - Auth login flows, config file formats, caching, baselines, telemetry

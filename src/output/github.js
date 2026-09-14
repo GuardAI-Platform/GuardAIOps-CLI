@@ -1,8 +1,6 @@
 import { appendFileSync } from 'node:fs';
-import { formatLocation, formatSummaryCounts } from './report.js';
 import { severityRank } from '../verdict.js';
-
-export const PR_COMMENT_MARKER = '<!-- guardai-scan-result -->';
+import { RESULT_COMMENT_MARKER } from './summary.js';
 
 function escapeAnnotationValue(value) {
   return String(value)
@@ -36,43 +34,6 @@ export function writeAnnotations(findings, failOn) {
 
     console.log(`::${command} ${properties.join(',')}::${escapeAnnotationMessage(message)}`);
   }
-}
-
-export function buildMarkdownSummary(scanResult, verdict, { repository, files }) {
-  const lines = [PR_COMMENT_MARKER, '', '## GuardAI Infrastructure Scan', ''];
-
-  if (scanResult.source === 'mock') {
-    lines.push('> **Mock mode.** These results did not come from the GuardAI API.');
-    lines.push('');
-  }
-
-  lines.push(verdict.passed ? '**Result: PASS**' : '**Result: FAIL**');
-  lines.push('');
-  lines.push(`- Files scanned: ${files.length}`);
-  lines.push(`- Findings: ${formatSummaryCounts(verdict.counts)}`);
-  lines.push(`- Failure threshold: ${verdict.failOn} and above`);
-  if (repository.commit) {
-    lines.push(`- Commit: \`${repository.commit.slice(0, 8)}\``);
-  }
-  lines.push('');
-
-  if (scanResult.findings.length > 0) {
-    lines.push('| Severity | Finding | Location | Control |');
-    lines.push('| --- | --- | --- | --- |');
-    for (const finding of scanResult.findings) {
-      lines.push(
-        `| ${finding.severity.toUpperCase()} | ${finding.title} | \`${formatLocation(finding)}\` | ${finding.controlId ?? '-'} |`,
-      );
-    }
-    lines.push('');
-  }
-
-  if (scanResult.reportUrl) {
-    lines.push(`[View the full GuardAI report](${scanResult.reportUrl})`);
-    lines.push('');
-  }
-
-  return lines.join('\n');
 }
 
 export function writeJobSummary(markdown) {
@@ -124,7 +85,9 @@ async function findExistingComment(apiBase, slug, pullRequestNumber, token) {
     return null;
   }
 
-  const existing = comments.find((comment) => String(comment.body ?? '').includes(PR_COMMENT_MARKER));
+  const existing = comments.find((comment) =>
+    String(comment.body ?? '').includes(RESULT_COMMENT_MARKER),
+  );
   return existing ? existing.id : null;
 }
 

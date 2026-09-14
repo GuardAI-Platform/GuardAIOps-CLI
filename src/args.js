@@ -1,5 +1,13 @@
-const BOOLEAN_FLAGS = new Set(['mock', 'changed', 'json', 'pr-comment', 'help']);
-const VALUE_FLAGS = new Set(['api-url', 'fail-on', 'base', 'path']);
+const BOOLEAN_FLAGS = new Set([
+  'mock',
+  'changed',
+  'json',
+  'comment',
+  'pr-comment',
+  'mr-comment',
+  'help',
+]);
+const VALUE_FLAGS = new Set(['api-url', 'fail-on', 'base', 'path', 'code-quality-file']);
 
 export function parseArgs(argv) {
   const flags = {};
