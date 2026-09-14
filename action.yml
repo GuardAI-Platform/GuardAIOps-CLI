@@ -32,7 +32,7 @@ inputs:
     required: false
     default: 'false'
   github-token:
-    description: 'Token used to post the pull request comment. Pass ${{ github.token }} and grant pull-requests: write.'
+    description: 'Token used to post the pull request comment. Pass the workflow github.token expression and grant pull-requests write permission.'
     required: false
     default: ''
   mock:
@@ -51,6 +51,9 @@ outputs:
   findings-count:
     description: 'Total number of findings returned by GuardAI'
     value: ${{ steps.guardai-scan.outputs.findings-count }}
+  exit-code:
+    description: 'Raw CLI exit code: 0 passed, 1 violations found, 2 usage error, 3 GuardAI failed to run'
+    value: ${{ steps.guardai-scan.outputs.exit-code }}
 
 runs:
   using: 'composite'
